@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 6003
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY . .
+RUN dotnet restore "Transferencia.Api/Transferencia.Api.csproj"
+RUN dotnet publish "Transferencia.Api/Transferencia.Api.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENV ASPNETCORE_URLS=http://+:6003
+ENTRYPOINT ["dotnet", "Transferencia.Api.dll"]

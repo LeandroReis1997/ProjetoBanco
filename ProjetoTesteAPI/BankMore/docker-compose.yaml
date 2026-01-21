@@ -1,0 +1,109 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bankmore
+      POSTGRES_PASSWORD: bankmore
+      POSTGRES_DB: bankmore
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  usuario-api:
+    build:
+      context: .
+      dockerfile: Usuario.Api/Dockerfile
+    environment:
+      DbProvider: Postgres
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=usuario;Username=bankmore;Password=bankmore
+      Jwt__Key: bankmore-chave-dev-123
+      Jwt__Issuer: BankMore
+      Jwt__Audience: BankMore
+    depends_on:
+      - postgres
+    ports:
+      - "6001:6001"
+
+  contacorrente-api:
+    build:
+      context: .
+      dockerfile: ContaCorrente.Api/Dockerfile
+    environment:
+      DbProvider: Postgres
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=contacorrente;Username=bankmore;Password=bankmore
+      Jwt__Key: bankmore-chave-dev-123
+      Jwt__Issuer: BankMore
+      Jwt__Audience: BankMore
+      UsuarioApi__BaseUrl: http://usuario-api:6001
+      Kafka__Brokers: kafka:9092
+      Kafka__TarifasTopic: tarifas-realizadas
+    depends_on:
+      - postgres
+      - usuario-api
+      - kafka
+    ports:
+      - "6002:6002"
+
+  transferencia-api:
+    build:
+      context: .
+      dockerfile: Transferencia.Api/Dockerfile
+    environment:
+      DbProvider: Postgres
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=transferencia;Username=bankmore;Password=bankmore
+      Jwt__Key: bankmore-chave-dev-123
+      Jwt__Issuer: BankMore
+      Jwt__Audience: BankMore
+      ContaCorrenteApi__BaseUrl: http://contacorrente-api:6002
+      UsuarioApi__BaseUrl: http://usuario-api:6001
+      Kafka__Brokers: kafka:9092
+      Kafka__TransferenciasTopic: transferencias-realizadas
+    depends_on:
+      - postgres
+      - contacorrente-api
+      - kafka
+    ports:
+      - "6003:6003"
+
+  tarifa-worker:
+    build:
+      context: .
+      dockerfile: Tarifa.Worker/Dockerfile
+    environment:
+      DbProvider: Postgres
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=tarifa;Username=bankmore;Password=bankmore
+      Kafka__Brokers: kafka:9092
+      Kafka__TransferenciasTopic: transferencias-realizadas
+      Kafka__TarifasTopic: tarifas-realizadas
+      Tarifa__Valor: 2.00
+    depends_on:
+      - postgres
+      - kafka
+
+volumes:
+  postgres_data:

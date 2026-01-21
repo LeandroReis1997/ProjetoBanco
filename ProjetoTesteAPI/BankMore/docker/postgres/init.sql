@@ -1,0 +1,4 @@
+CREATE DATABASE usuario;
+CREATE DATABASE contacorrente;
+CREATE DATABASE transferencia;
+CREATE DATABASE tarifa;

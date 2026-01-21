@@ -1,0 +1,20 @@
+bin/
+obj/
+**/*.db
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.nuget/
+*.vcxproj.user
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+diagnostics.log
+processexit.log
+bin/Debug/**/diagnostics.log
+bin/Debug/**/processexit.log
